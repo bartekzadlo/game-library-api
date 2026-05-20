@@ -2,7 +2,7 @@
 
 REST API do zarządzania biblioteką gier — projekt zaliczeniowy z przedmiotu **Zaawansowane Technologie Programowania Aplikacji Internetowych** (ZTPAI, semestr letni 2025/2026).
 
-Aplikacja umożliwia przeglądanie i zarządzanie kolekcją gier z podziałem na role: użytkownicy mogą przeglądać katalog, administratorzy mogą go edytować. Dostęp chroniony jest tokenami JWT.
+Aplikacja umożliwia przeglądanie i zarządzanie kolekcją gier z podziałem na role: użytkownicy mogą przeglądać katalog, dodawać recenzje i prowadzić własną bibliotekę, administratorzy mogą zarządzać katalogiem. Dostęp chroniony jest tokenami JWT.
 
 ---
 
@@ -16,6 +16,7 @@ Aplikacja umożliwia przeglądanie i zarządzanie kolekcją gier z podziałem na
 | Walidacja   | Jakarta Validation                 |
 | Testy       | JUnit 5, Mockito                   |
 | Build       | Maven (Maven Wrapper)              |
+| Frontend    | Angular 17                         |
 
 ---
 
@@ -57,6 +58,39 @@ Dostępna w trybie deweloperskim pod adresem: `http://localhost:8080/h2-console`
 
 ---
 
+## ⭐ System oceniania
+
+Każda recenzja składa się z pięciu kryteriów ocenianych w skali 1–10:
+
+| Kryterium     | Waga (DEFAULT) | Opis                                          |
+|---------------|---------------|-----------------------------------------------|
+| Rozgrywka     | 30%           | Mechaniki, sterowanie, satysfakcja z gry      |
+| Grafika       | 20%           | Oprawa wizualna, efekty, design poziomów      |
+| Dźwięk        | 15%           | Muzyka, efekty dźwiękowe, dubbing             |
+| Fabuła        | 20%           | Narracja, postacie, scenariusz (opcjonalne)   |
+| Regrywalność  | 15%           | Zawartość, tryby gry, wartość za cenę         |
+
+Ocena ogólna recenzji jest wyliczana automatycznie jako ważona średnia kryteriów.
+
+### Profile oceniania
+
+Oprócz profilu domyślnego (`DEFAULT`) dostępne są dwa dodatkowe profile z innymi wagami:
+
+- **`NARRATIVE`** — większy nacisk na fabułę i rozgrywkę (dla gier narracyjnych)
+- **`MULTIPLAYER`** — większy nacisk na rozgrywkę i regrywalność, fabuła pominięta
+
+### Bayesian rating
+
+Gry w katalogu są sortowane po ocenie z użyciem **Bayesian average**, który uwzględnia liczbę recenzji i chroni przed zawyżaniem ocen gier z małą ich liczbą:
+
+```
+bayesian = (C × M + n × avg) / (C + n)
+```
+
+gdzie `C = 5` (prior count) i `M = 7.0` (prior mean). Sortowanie używa pełnej precyzji obliczonej wartości, a wyświetlana ocena jest zaokrąglona do jednego miejsca po przecinku.
+
+---
+
 ## 📡 Endpointy API
 
 ### Autentykacja
@@ -70,8 +104,10 @@ Dostępna w trybie deweloperskim pod adresem: `http://localhost:8080/h2-console`
 > To jest celowo zostawione na potrzeby developmentu/testów. W produkcji nie wolno na to pozwalać.
 
 **Przykład rejestracji:**
-```json
+```http
 POST /api/auth/register
+Content-Type: application/json
+
 {
   "username": "jan",
   "password": "haslo123",
@@ -92,8 +128,8 @@ POST /api/auth/register
 
 | Metoda | Endpoint          | Opis                     | Rola       |
 |--------|-------------------|--------------------------|------------|
-| GET    | `/api/games`      | Lista wszystkich gier    | USER/ADMIN |
-| GET    | `/api/games/{id}` | Szczegóły gry            | USER/ADMIN |
+| GET    | `/api/games`      | Lista wszystkich gier    | Publiczny  |
+| GET    | `/api/games/{id}` | Szczegóły gry            | Publiczny  |
 | POST   | `/api/games`      | Dodaj nową grę           | ADMIN      |
 | PUT    | `/api/games/{id}` | Zaktualizuj grę          | ADMIN      |
 | DELETE | `/api/games/{id}` | Usuń grę                 | ADMIN      |
@@ -102,18 +138,28 @@ POST /api/auth/register
 
 - `page` (domyślnie `0`)
 - `size` (domyślnie `20`)
-- `sort` (domyślnie `title,asc`) – format: `pole,kierunek` (np. `releaseYear,desc`)
+- `sort` (domyślnie `title,asc`) – dostępne wartości: `title,asc`, `title,desc`, `releaseYear,asc`, `releaseYear,desc`, `rating,asc`, `rating,desc`
 - `title` (opcjonalnie) – wyszukiwanie po tytule (contains, case-insensitive)
 - `genre` (opcjonalnie)
 - `platform` (opcjonalnie)
 - `releaseYearFrom` / `releaseYearTo` (opcjonalnie)
 - `hasStory` (opcjonalnie)
 
+> Sortowanie `rating,desc` / `rating,asc` używa Bayesian average obliczanego w pamięci po pobraniu wszystkich pasujących gier.
+
 **Odpowiedź GET `/api/games` (PagedResponse):**
 
 ```json
 {
-  "items": [ { "id": 1, "title": "..." } ],
+  "items": [
+    {
+      "id": 1,
+      "title": "Hades",
+      "averageRating": 9.1,
+      "bayesianRating": 8.2,
+      "reviewCount": 7
+    }
+  ],
   "page": 0,
   "size": 20,
   "totalItems": 123,
@@ -126,8 +172,8 @@ POST /api/auth/register
 {
   "title": "The Witcher 3",
   "description": "RPG z otwartym światem",
-  "genre": "RPG",
-  "platform": "PC",
+  "genres": ["RPG", "Action"],
+  "platforms": ["PC", "PlayStation 5"],
   "releaseYear": 2015,
   "coverUrl": "https://example.com/cover.jpg",
   "hasStory": true,
@@ -150,31 +196,36 @@ POST /api/auth/register
 | PUT    | `/api/reviews/{id}`                  | Edytuj recenzję (tylko autor)                           |
 | DELETE | `/api/reviews/{id}`                  | Usuń recenzję (tylko autor)                             |
 
-**GET `/api/reviews/game/{gameId}` – query params (paginacja + sortowanie):**
+**GET `/api/reviews/game/{gameId}` – query params:**
 
 - `page` (domyślnie `0`)
 - `size` (domyślnie `20`)
-- `sort` (domyślnie `createdAt,desc`) – format: `pole,kierunek` (np. `overallScore,desc`)
+- `sort` (domyślnie `createdAt,desc`) – np. `overallScore,desc`
 
-**Odpowiedź GET `/api/reviews/game/{gameId}` (PagedResponse):**
-
+**Przykład ciała zapytania (POST/PUT):**
 ```json
 {
-  "items": [ { "id": 1, "gameId": 1, "overallScore": 8.5 } ],
-  "page": 0,
-  "size": 20,
-  "totalItems": 12,
-  "totalPages": 1
+  "gameId": 1,
+  "title": "Świetna gra",
+  "content": "Bardzo wciągająca rozgrywka i świetny klimat.",
+  "gameplayScore": 9,
+  "graphicsScore": 8,
+  "soundScore": 9,
+  "storyScore": 8,
+  "replayValueScore": 8,
+  "ratingProfile": "DEFAULT"
 }
 ```
+
+> `storyScore` może być pominięte (null) dla gier bez fabuły. Ocena ogólna jest wtedy liczona z pozostałych kryteriów z renormalizacją wag.
 
 ### Admin
 
 > Endpointy dostępne tylko dla roli `ADMIN`.
 
-| Metoda | Endpoint             | Opis                              |
-|--------|----------------------|-----------------------------------|
-| POST   | `/api/admin/users`   | Utwórz użytkownika (USER/ADMIN)   |
+| Metoda | Endpoint           | Opis                            |
+|--------|--------------------|---------------------------------|
+| POST   | `/api/admin/users` | Utwórz użytkownika (USER/ADMIN) |
 
 ### Biblioteka użytkownika
 
@@ -198,22 +249,7 @@ POST /api/auth/register
 }
 ```
 
-**Przykład ciała zapytania (POST/PUT):**
-```json
-{
-  "gameId": 1,
-  "title": "Świetna gra",
-  "content": "Bardzo wciągająca rozgrywka i świetny klimat.",
-  "gameplayScore": 9,
-  "graphicsScore": 8,
-  "soundScore": 9,
-  "storyScore": 8,
-  "replayValueScore": 8,
-  "ratingProfile": "DEFAULT"
-}
-```
-
-> `storyScore` może być pominięte (N/A) dla gier bez fabuły. Wtedy ocena ogólna jest liczona z pozostałych kryteriów z renormalizacją wag.
+Dostępne statusy: `PLAYING`, `COMPLETED`, `DROPPED`, `PLAN_TO_PLAY`, `ON_HOLD`.
 
 ### Kody HTTP
 
@@ -247,19 +283,34 @@ src/
 │   │   ├── Game.java     # Encja JPA
 │   │   ├── GameController.java
 │   │   ├── GameMapper.java
+│   │   ├── GameRatingStats.java
 │   │   ├── GameRepository.java
 │   │   └── GameService.java
+│   ├── library/          # UserGame, LibraryController, LibraryService
 │   ├── review/
 │   │   ├── dto/          # ReviewRequest, ReviewResponse
 │   │   ├── Review.java   # Encja JPA
 │   │   ├── ReviewController.java
 │   │   ├── ReviewMapper.java
 │   │   ├── ReviewRepository.java
-│   │   └── ReviewService.java
+│   │   ├── ReviewService.java
+│   │   └── RatingProfile.java
 │   ├── security/         # JwtAuthFilter, JwtService, SecurityConfig
-│   └── util/             # RatingCalculator
+│   └── util/             # RatingCalculator, Criterion
 └── test/
     └── ...               # GameServiceTest, ReviewServiceTest, RatingCalculatorTest
+
+frontend/
+└── src/app/
+    ├── core/
+    │   ├── models/       # Interfejsy TypeScript
+    │   ├── services/     # GameService, ReviewService, AuthService, LibraryService
+    │   ├── guards/       # AuthGuard
+    │   └── interceptors/ # AuthInterceptor (JWT)
+    └── features/
+        ├── auth/         # Login, Register
+        ├── games/        # GameList, GameDetail, GameForm
+        └── library/      # LibraryList
 ```
 
 ---
@@ -270,7 +321,7 @@ src/
 ./mvnw test
 ```
 
-Projekt zawiera testy jednostkowe dla `GameService` (Mockito) oraz `RatingCalculator`.
+Projekt zawiera testy jednostkowe dla `GameService` (Mockito), `ReviewService` oraz `RatingCalculator`.
 
 ---
 
@@ -286,7 +337,7 @@ Główna konfiguracja w `src/main/resources/application.properties`.
 
 Aplikacja frontendowa znajduje się w katalogu `frontend/`.
 
-### Uruchomienie
+### Uruchomienie (tryb deweloperski)
 
 ```bash
 cd frontend
@@ -295,13 +346,14 @@ ng serve
 # → http://localhost:4200
 ```
 
-> Backend musi działać na `http://localhost:8080` zanim uruchomisz frontend.
+> Backend musi działać na `http://localhost:8080`.
 
-### Funkcjonalności frontendu
+### Funkcjonalności
 
-- Przeglądanie katalogu gier z filtrowaniem i paginacją
-- Szczegóły gry ze statystykami ocen
+- Przeglądanie katalogu gier z filtrowaniem po gatunku, platformie, roku wydania i tytule
+- Sortowanie po tytule, roku wydania oraz ocenie (Bayesian average)
+- Szczegóły gry: statystyki ocen z podziałem na kryteria, lista recenzji
 - Rejestracja i logowanie (JWT)
-- Dodawanie recenzji (zalogowani użytkownicy)
-- Zarządzanie grami – CRUD (tylko ADMIN)
-- Prywatna biblioteka użytkownika
+- Dodawanie i edytowanie recenzji z oceną pięciu kryteriów
+- Zarządzanie grami (CRUD) — tylko ADMIN
+- Prywatna biblioteka użytkownika ze statusami i oznaczeniem ulubionych
