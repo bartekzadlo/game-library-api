@@ -29,7 +29,9 @@ export class GameListComponent implements OnInit {
     { value: 'title,asc', label: 'Tytuł A-Z' },
     { value: 'title,desc', label: 'Tytuł Z-A' },
     { value: 'releaseYear,desc', label: 'Najnowsze' },
-    { value: 'releaseYear,asc', label: 'Najstarsze' }
+    { value: 'releaseYear,asc', label: 'Najstarsze' },
+    { value: 'rating,desc', label: 'Ocena: od najwyższej' },
+    { value: 'rating,asc', label: 'Ocena: od najniższej' }
   ];
 
   constructor(private gameService: GameService, private auth: AuthService) {}

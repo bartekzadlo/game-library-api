@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
@@ -23,4 +24,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     @Query("SELECT AVG(r.overallScore) FROM Review r WHERE r.game.id = :gameId")
     Optional<Double> findAverageOverallScoreByGameId(@Param("gameId") Long gameId);
+
+    @Query("SELECT r.game.id as gameId, COUNT(r) as reviewCount, AVG(r.overallScore) as avgScore FROM Review r GROUP BY r.game.id")
+    List<Object[]> findReviewStatsPerGame();
 }

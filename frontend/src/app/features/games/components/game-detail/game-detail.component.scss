@@ -172,7 +172,15 @@ h1 { font-size: 2.2rem; color: var(--text-primary); line-height: 1.2; }
 }
 .review-title { color: var(--text-primary); font-size: 1rem; margin-bottom: .5rem; }
 .review-content { color: var(--text-secondary); font-size: .9rem; line-height: 1.6; margin-bottom: .75rem; }
-.review-scores { display: flex; gap: .75rem; flex-wrap: wrap; color: var(--text-muted); font-size: .85rem; }
+.review-scores {
+  display: flex;
+  gap: .5rem .75rem;
+  flex-wrap: wrap;
+  font-size: .85rem;
+  color: var(--text-secondary);
+  span { white-space: nowrap; }
+  strong { color: var(--text-primary); }
+}
 .review-actions { display: flex; gap: .5rem; margin-top: .75rem; }
 .btn-sm-edit, .btn-sm-del {
   background: none; border: 1px solid var(--border);

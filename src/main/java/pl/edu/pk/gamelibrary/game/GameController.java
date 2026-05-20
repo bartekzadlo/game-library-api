@@ -17,8 +17,6 @@ import pl.edu.pk.gamelibrary.common.dto.PagedResponse;
 import pl.edu.pk.gamelibrary.game.dto.GameRequest;
 import pl.edu.pk.gamelibrary.game.dto.GameResponse;
 
-import java.util.List;
-
 @Tag(name = "Gry", description = "Przeglądanie i zarządzanie biblioteką gier")
 @RestController
 @RequestMapping("/api/games")
@@ -31,13 +29,13 @@ public class GameController {
     }
 
     @Operation(summary = "Lista gier z filtrowaniem i paginacją",
-               description = "Publiczny endpoint. Dostępne filtry: tytuł, gatunek, platforma, lata wydania, obecność fabuły.")
+               description = "Publiczny endpoint. Dostępne filtry: tytuł, gatunek, platforma, lata wydania, obecność fabuły. Sort: title,asc | releaseYear,desc | rating,desc | rating,asc")
     @ApiResponse(responseCode = "200", description = "Lista gier (stronicowana)")
     @GetMapping
     public PagedResponse<GameResponse> getAll(
             @Parameter(description = "Numer strony (od 0)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Rozmiar strony") @RequestParam(defaultValue = "20") int size,
-            @Parameter(description = "Sortowanie, np. `title,asc` lub `releaseYear,desc`") @RequestParam(defaultValue = "title,asc") String sort,
+            @Parameter(description = "Sortowanie: title,asc | releaseYear,desc | rating,desc | rating,asc") @RequestParam(defaultValue = "title,asc") String sort,
             @Parameter(description = "Filtr po tytule (częściowy)") @RequestParam(required = false) String title,
             @Parameter(description = "Filtr po gatunku") @RequestParam(required = false) String genre,
             @Parameter(description = "Filtr po platformie") @RequestParam(required = false) String platform,
@@ -56,8 +54,17 @@ public class GameController {
         criteria.setReleaseYearTo(releaseYearTo);
         criteria.setHasStory(hasStory);
 
+        java.util.Map<Long, GameRatingStats> statsMap = gameService.getAllRatingStats();
+
         Page<GameResponse> result = gameService.searchGames(criteria, pageable)
-                .map(GameMapper::toResponse);
+                .map(g -> {
+                    GameResponse res = GameMapper.toResponse(g);
+                    GameRatingStats stats = statsMap.getOrDefault(g.getId(), GameRatingStats.empty());
+                    res.setReviewCount(stats.getReviewCount());
+                    res.setAverageRating(stats.getReviewCount() > 0 ? stats.getAverageRating() : null);
+                    res.setBayesianRating(stats.getReviewCount() > 0 ? stats.getBayesianRating() : null);
+                    return res;
+                });
 
         return new PagedResponse<>(
                 result.getContent(),
@@ -75,7 +82,13 @@ public class GameController {
     })
     @GetMapping("/{id}")
     public GameResponse getById(@PathVariable Long id) {
-        return GameMapper.toResponse(gameService.getGameById(id));
+        Game game = gameService.getGameById(id);
+        GameResponse res = GameMapper.toResponse(game);
+        GameRatingStats stats = gameService.getRatingStatsForGame(id);
+        res.setReviewCount(stats.getReviewCount());
+        res.setAverageRating(stats.getReviewCount() > 0 ? stats.getAverageRating() : null);
+        res.setBayesianRating(stats.getReviewCount() > 0 ? stats.getBayesianRating() : null);
+        return res;
     }
 
     @Operation(summary = "Dodaj nową grę", description = "Wymaga roli **ADMIN**.",
@@ -129,6 +142,7 @@ public class GameController {
         String field = parts[0].trim();
         String dir = parts.length > 1 ? parts[1].trim() : "asc";
         Sort.Direction direction = "desc".equalsIgnoreCase(dir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        // "rating" nie jest polem JPA — GameService obsłuży to osobno; przekazujemy Sort żeby wiedzieć kierunek
         return Sort.by(direction, field);
     }
 }

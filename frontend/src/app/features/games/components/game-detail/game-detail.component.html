@@ -149,11 +149,11 @@
         <h4 class="review-title">{{ r.title }}</h4>
         <p class="review-content">{{ r.content }}</p>
         <div class="review-scores">
-          <span>🎮 {{ r.gameplayScore }}</span>
-          <span>🎨 {{ r.graphicsScore }}</span>
-          <span>🎵 {{ r.soundScore }}</span>
-          <span *ngIf="r.storyScore">📖 {{ r.storyScore }}</span>
-          <span>🔁 {{ r.replayValueScore }}</span>
+          <span><strong>Rozgrywka:</strong> {{ r.gameplayScore }}/10</span>
+          <span><strong>Grafika:</strong> {{ r.graphicsScore }}/10</span>
+          <span><strong>Dźwięk:</strong> {{ r.soundScore }}/10</span>
+          <span *ngIf="r.storyScore"><strong>Fabuła:</strong> {{ r.storyScore }}/10</span>
+          <span><strong>Regrywalność:</strong> {{ r.replayValueScore }}/10</span>
         </div>
         <div class="review-actions" *ngIf="isLoggedIn">
           <button class="btn-sm-edit" (click)="editReview(r)">✏️ Edytuj</button>

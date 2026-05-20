@@ -48,6 +48,17 @@
       </div>
       <div class="game-info">
         <h3 class="game-title">{{ game.title }}</h3>
+
+        <!-- Rating badge -->
+        <div class="game-rating" *ngIf="game.reviewCount > 0">
+          <span class="rating-stars">⭐</span>
+          <span class="rating-value">{{ game.averageRating | number:'1.1-1' }}</span>
+          <span class="rating-count">({{ game.reviewCount }} {{ game.reviewCount === 1 ? 'recenzja' : game.reviewCount < 5 ? 'recenzje' : 'recenzji' }})</span>
+        </div>
+        <div class="game-rating game-rating--none" *ngIf="game.reviewCount === 0">
+          <span class="rating-none">Brak recenzji</span>
+        </div>
+
         <div class="game-meta">
           <span class="badge genre" *ngFor="let g of game.genres">{{ g }}</span>
           <span class="badge platform" *ngFor="let p of game.platforms">{{ p }}</span>

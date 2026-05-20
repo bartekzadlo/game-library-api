@@ -118,6 +118,23 @@
 
 .game-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
 
+.game-rating {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .85rem;
+
+  .rating-stars { font-size: .9rem; }
+  .rating-value { font-weight: 700; color: #fbbf24; }
+  .rating-count { color: var(--text-muted); font-size: .78rem; }
+
+  &--none .rating-none {
+    font-size: .78rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+}
+
 .game-meta { display: flex; gap: .4rem; flex-wrap: wrap; }
 .badge {
   font-size: .75rem;

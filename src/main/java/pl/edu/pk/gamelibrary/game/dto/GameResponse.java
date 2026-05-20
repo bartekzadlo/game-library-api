@@ -17,6 +17,11 @@ public class GameResponse {
     private boolean hasStory;
     private RatingProfile defaultRatingProfile;
 
+    // Rating stats
+    private Double averageRating;
+    private long reviewCount;
+    private Double bayesianRating;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -43,4 +48,13 @@ public class GameResponse {
 
     public RatingProfile getDefaultRatingProfile() { return defaultRatingProfile; }
     public void setDefaultRatingProfile(RatingProfile defaultRatingProfile) { this.defaultRatingProfile = defaultRatingProfile; }
+
+    public Double getAverageRating() { return averageRating; }
+    public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
+
+    public long getReviewCount() { return reviewCount; }
+    public void setReviewCount(long reviewCount) { this.reviewCount = reviewCount; }
+
+    public Double getBayesianRating() { return bayesianRating; }
+    public void setBayesianRating(Double bayesianRating) { this.bayesianRating = bayesianRating; }
 }

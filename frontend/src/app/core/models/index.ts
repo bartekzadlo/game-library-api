@@ -25,6 +25,9 @@ export interface GameResponse {
   coverUrl: string;
   hasStory: boolean;
   defaultRatingProfile: RatingProfile;
+  averageRating: number | null;
+  reviewCount: number;
+  bayesianRating: number | null;
 }
 
 export interface GameRequest {
